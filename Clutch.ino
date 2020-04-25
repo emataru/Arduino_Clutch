@@ -1,11 +1,13 @@
-// Clutch and Handbreake Controller 
+// Dual Clutch Controller 
 // Arduino Leonardo or Arduino Micro.
 //
 // Wataru Hanada
-// 2020-03-20 - Original Version
+// 2020-02-02 - Original Version
+// 2020-04-26 - Add Bite Point Mode
 //------------------------------------------------------------
 
 #include "Joystick.h"
+#include "State.h"
 
 Joystick_ Joystick = Joystick_(
   0x03,                    // reportid
@@ -25,17 +27,25 @@ Joystick_ Joystick = Joystick_(
   false                    // steering enable
 );
 
-const unsigned long gcAnalogDelta = 25;
-unsigned long gNextTime = 0;
 const bool isDebug = false;
+const long a1_min = 280;
+const long a1_max = 222;
+const long a2_min = 265;
+const long a2_max = 200;
+
+StateContext state_context_;
+InputData in_;
+OutData out_;
 
 void setup() {
   if(isDebug) {
     Serial.begin(9600);
   }
-  Joystick.setBrakeRange(266, 207); // Clutch A1
-  Joystick.setThrottleRange(283, 239); // Parking Breake A2
+  Joystick.setBrakeRange(a1_min, a1_max); // Left Paddle A1
+  Joystick.setThrottleRange(a2_min, a2_max); // Right Paddle A2
   Joystick.begin();
+
+  in_.Init(a1_min, a1_max, a2_min, a2_max, false);
 
   pinMode(A1, INPUT_PULLUP);
   pinMode(A2, INPUT_PULLUP);
@@ -45,7 +55,7 @@ void setup() {
 void loop() {
 
   // Turn indicator light on.
-//  digitalWrite(13, 1);
+  // digitalWrite(13, 1);
 
   auto a1 = analogRead(A1);
   auto a2 = analogRead(A2);
@@ -54,6 +64,13 @@ void loop() {
     Serial.println(a1);
     Serial.println(a2);
   }
-  Joystick.setBrake(a1);
-  Joystick.setThrottle(a2);
+
+  in_.Update(a1, a2);
+  state_context_.Update(&in_, &out_);
+
+  Joystick.setBrake(out_.A1);
+
+  if(isDebug) {
+    Serial.println(out_.A1);
+  }
 }
